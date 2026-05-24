@@ -14,6 +14,7 @@ interface PluginOptions {
   autoSync?: boolean
   codegraphCommand?: string
   injectMcp?: boolean
+  slimMcp?: boolean
   syncDebounceMs?: number
 }
 
@@ -22,6 +23,7 @@ interface ResolvedOptions {
   autoSync: boolean
   command: string
   injectMcp: boolean
+  slimMcp: boolean
   syncDebounceMs: number
 }
 
@@ -61,16 +63,19 @@ function normalizeOptions(options: PluginOptions = {}, project = process.cwd()):
     autoSync: options.autoSync !== false,
     command: options.codegraphCommand ?? findBundledCodeGraphCommand(project) ?? "codegraph",
     injectMcp: options.injectMcp !== false,
+    slimMcp: options.slimMcp === true,
     syncDebounceMs: options.syncDebounceMs ?? DEFAULT_SYNC_DEBOUNCE_MS,
   }
 }
 
 function defaultCodeGraphMcpConfig(options: ResolvedOptions): CodeGraphMcpConfig {
-  return {
+  const config: CodeGraphMcpConfig = {
     type: "local",
     command: [options.command, "serve", "--mcp"],
     enabled: true,
   }
+  if (options.slimMcp) config.slim = true
+  return config
 }
 
 function mergeCodeGraphMcpConfig(current: unknown, options: ResolvedOptions): CodeGraphMcpConfig {
@@ -85,26 +90,39 @@ function stripMcpExtensionKeys(config: Record<string, unknown>): CodeGraphMcpCon
   return sanitized
 }
 
-function hasSlimMcpMarker(project: string): boolean {
-  let marker: boolean | undefined
+function hasSupportedSlimMcpConfig(project: string): boolean {
+  let isSupported: boolean | undefined
   for (const path of configPaths(project)) {
-    marker = readCodeGraphSlimMarker(path) ?? marker
+    isSupported = readCodeGraphSlimSupport(path) ?? isSupported
   }
-  return marker === true
+  return isSupported === true
 }
 
 function configPaths(project: string): string[] {
   return uniquePaths([GLOBAL_OPENCODE_CONFIG, join(project, "opencode.json")])
 }
 
-function readCodeGraphSlimMarker(path: string): boolean | undefined {
+function readCodeGraphSlimSupport(path: string): boolean | undefined {
   if (!existsSync(path)) return undefined
   try {
     const config = tryParseJson(readFileSync(path, "utf8"))
-    return isObjectRecord(config?.mcp?.codegraph) ? config.mcp.codegraph.slim === true : undefined
+    const codegraph = config?.mcp?.codegraph
+    if (!isObjectRecord(codegraph)) return undefined
+    if (codegraph.slim !== true) return false
+    return hasMcpTransport(codegraph)
   } catch {
     return undefined
   }
+}
+
+function hasMcpTransport(config: Record<string, unknown>): boolean {
+  if (config.type === "remote") return typeof config.url === "string"
+  if (config.type === "local") return hasMcpCommand(config)
+  return typeof config.url === "string" || hasMcpCommand(config)
+}
+
+function hasMcpCommand(config: Record<string, unknown>): boolean {
+  return Array.isArray(config.command) || typeof config.command === "string"
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -451,7 +469,7 @@ function reminder(file: StatusFile): string {
 const CodeGraphPlugin: Plugin = async (input, rawOptions) => {
   const options = normalizeOptions(rawOptions as PluginOptions, input.directory)
   const controller = new CodeGraphController(input.directory, options)
-  const isSlimManaged = hasSlimMcpMarker(input.directory)
+  const isSlimManaged = hasSupportedSlimMcpConfig(input.directory)
   await controller.start()
 
   return {

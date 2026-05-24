@@ -48,6 +48,7 @@ Tuple form:
         "autoInit": "always",
         "autoSync": true,
         "injectMcp": true,
+        "slimMcp": false,
         "codegraphCommand": "codegraph",
         "syncDebounceMs": 4000
       }
@@ -60,7 +61,8 @@ Tuple form:
 |---|---:|---|
 | `autoInit` | `"always"` | `"always"`, `"ask"`, `"never"`; `true` maps to `"always"`, `false` maps to `"never"` |
 | `autoSync` | `true` | Debounced `codegraph sync` after edit/write/patch and common mutating shell commands |
-| `injectMcp` | `true` | Adds `mcp.codegraph` with `codegraph serve --mcp`; skipped when raw config marks `mcp.codegraph.slim: true` |
+| `injectMcp` | `true` | Adds `mcp.codegraph` with `codegraph serve --mcp`; skipped for complete raw slim config |
+| `slimMcp` | `false` | Adds `slim: true` to injected MCP config for cfg-aware `opencode-slim-mcp`; requires plugin order below |
 | `codegraphCommand` | bundled binary, then `"codegraph"` | Custom binary name or absolute path |
 | `syncDebounceMs` | `4000` | Delay before post-edit sync |
 
@@ -102,7 +104,7 @@ Set `injectMcp: false` to disable automatic MCP injection.
 
 ### Slim MCP
 
-`opencode-slim-mcp` discovers slim servers from raw `opencode.json`, before this plugin injects defaults. Use a complete raw MCP entry:
+Current `opencode-slim-mcp` discovers slim servers from raw `opencode.json`, before this plugin injects defaults. Use a complete raw MCP entry:
 
 ```json
 {
@@ -121,7 +123,23 @@ Set `injectMcp: false` to disable automatic MCP injection.
 }
 ```
 
-When `slim: true` is present in raw config, this plugin does not re-inject `mcp.codegraph` after the slim plugin removes it.
+When complete raw slim config is present, this plugin does not re-inject `mcp.codegraph` after the slim plugin removes it. `{"slim": true}` without `command` or `url` falls back to normal MCP injection.
+
+For a cfg-aware `opencode-slim-mcp` that scans `cfg.mcp` inside its config hook, use plugin order so CodeGraph injects first:
+
+```json
+{
+  "plugin": [
+    [
+      "opencode-colbymchemry-codegraph",
+      { "slimMcp": true }
+    ],
+    "opencode-slim-mcp"
+  ]
+}
+```
+
+Do not enable `slimMcp` with current raw-config-only `opencode-slim-mcp`; opencode may reject the final `slim` key.
 
 ## Status File
 
