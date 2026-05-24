@@ -23,4 +23,4 @@ OpenCode server + TUI plugin for `@colbymchenry/codegraph` MCP setup, index sync
 
 - Publish workflow: `.github/workflows/publish.yml`.
 - Tag format: `v*`.
-- Workflow runs typecheck, sets package version from tag, builds, then publishes.
+- Workflow runs typecheck, idempotently sets package version from tag, builds, then publishes.
