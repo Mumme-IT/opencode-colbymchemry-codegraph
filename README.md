@@ -25,7 +25,7 @@ Add TUI plugin to `tui.json`:
 ```json
 {
   "$schema": "https://opencode.ai/tui.json",
-  "plugin": ["opencode-colbymchemry-codegraph/tui"]
+  "plugin": ["opencode-colbymchemry-codegraph"]
 }
 ```
 
