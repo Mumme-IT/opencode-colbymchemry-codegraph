@@ -45,9 +45,11 @@ type CodeGraphMcpConfig = Record<string, unknown>
 
 const STATE_DIR = join(homedir(), ".local", "state", "opencode", "colbymchenry-codegraph")
 const STATUS_FILE = join(STATE_DIR, "status.json")
+const GLOBAL_OPENCODE_CONFIG = join(homedir(), ".config", "opencode", "opencode.json")
 const DEFAULT_SYNC_DEBOUNCE_MS = 4_000
 const EDIT_TOOL_NAMES = new Set(["edit", "write", "patch", "apply_patch"])
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url))
+const MCP_EXTENSION_KEYS = new Set(["slim"])
 
 function ensureDir(path: string): void {
   mkdirSync(path, { recursive: true })
@@ -74,7 +76,35 @@ function defaultCodeGraphMcpConfig(options: ResolvedOptions): CodeGraphMcpConfig
 function mergeCodeGraphMcpConfig(current: unknown, options: ResolvedOptions): CodeGraphMcpConfig {
   const defaults = defaultCodeGraphMcpConfig(options)
   if (!isObjectRecord(current)) return defaults
-  return { ...defaults, ...current }
+  return { ...defaults, ...stripMcpExtensionKeys(current) }
+}
+
+function stripMcpExtensionKeys(config: Record<string, unknown>): CodeGraphMcpConfig {
+  const sanitized = { ...config }
+  for (const key of MCP_EXTENSION_KEYS) delete sanitized[key]
+  return sanitized
+}
+
+function hasSlimMcpMarker(project: string): boolean {
+  let marker: boolean | undefined
+  for (const path of configPaths(project)) {
+    marker = readCodeGraphSlimMarker(path) ?? marker
+  }
+  return marker === true
+}
+
+function configPaths(project: string): string[] {
+  return uniquePaths([GLOBAL_OPENCODE_CONFIG, join(project, "opencode.json")])
+}
+
+function readCodeGraphSlimMarker(path: string): boolean | undefined {
+  if (!existsSync(path)) return undefined
+  try {
+    const config = tryParseJson(readFileSync(path, "utf8"))
+    return isObjectRecord(config?.mcp?.codegraph) ? config.mcp.codegraph.slim === true : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -421,12 +451,17 @@ function reminder(file: StatusFile): string {
 const CodeGraphPlugin: Plugin = async (input, rawOptions) => {
   const options = normalizeOptions(rawOptions as PluginOptions, input.directory)
   const controller = new CodeGraphController(input.directory, options)
+  const isSlimManaged = hasSlimMcpMarker(input.directory)
   await controller.start()
 
   return {
     config: async (cfg: any) => {
       if (!options.injectMcp) return
       cfg.mcp = cfg.mcp || {}
+      if (isSlimManaged) {
+        delete cfg.mcp.codegraph
+        return
+      }
       cfg.mcp.codegraph = mergeCodeGraphMcpConfig(cfg.mcp.codegraph, options)
     },
     tool: {

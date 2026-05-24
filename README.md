@@ -60,7 +60,7 @@ Tuple form:
 |---|---:|---|
 | `autoInit` | `"always"` | `"always"`, `"ask"`, `"never"`; `true` maps to `"always"`, `false` maps to `"never"` |
 | `autoSync` | `true` | Debounced `codegraph sync` after edit/write/patch and common mutating shell commands |
-| `injectMcp` | `true` | Adds `mcp.codegraph` with `codegraph serve --mcp` |
+| `injectMcp` | `true` | Adds `mcp.codegraph` with `codegraph serve --mcp`; skipped when raw config marks `mcp.codegraph.slim: true` |
 | `codegraphCommand` | bundled binary, then `"codegraph"` | Custom binary name or absolute path |
 | `syncDebounceMs` | `4000` | Delay before post-edit sync |
 
@@ -80,7 +80,7 @@ By default, the server plugin injects this config when `mcp.codegraph` is missin
 }
 ```
 
-If `opencode.json` already defines `mcp.codegraph`, the plugin shallow-merges it over the defaults. User values override defaults; extra keys are preserved:
+If `opencode.json` already defines `mcp.codegraph`, the plugin shallow-merges it over the defaults. User values override defaults; plugin-only extension keys such as `slim` are stripped before opencode validates MCP config:
 
 ```json
 {
@@ -99,6 +99,29 @@ If `opencode.json` already defines `mcp.codegraph`, the plugin shallow-merges it
 Effective config keeps default `type` and `enabled`, replaces `command`, and adds `env`.
 
 Set `injectMcp: false` to disable automatic MCP injection.
+
+### Slim MCP
+
+`opencode-slim-mcp` discovers slim servers from raw `opencode.json`, before this plugin injects defaults. Use a complete raw MCP entry:
+
+```json
+{
+  "plugin": [
+    "opencode-slim-mcp",
+    "opencode-colbymchemry-codegraph"
+  ],
+  "mcp": {
+    "codegraph": {
+      "slim": true,
+      "type": "local",
+      "command": ["codegraph", "serve", "--mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+When `slim: true` is present in raw config, this plugin does not re-inject `mcp.codegraph` after the slim plugin removes it.
 
 ## Status File
 
