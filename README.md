@@ -12,14 +12,6 @@ OpenCode server + TUI plugin for [colbymchenry/codegraph](https://github.com/col
 
 ## Install
 
-Install plugin:
-
-```sh
-npm i opencode-colbymchemry-codegraph
-```
-
-The plugin installs `@colbymchenry/codegraph` as a dependency and prefers its bundled binary. Set `codegraphCommand` only to use a custom binary.
-
 Add server plugin to `opencode.json`:
 
 ```json
@@ -28,7 +20,7 @@ Add server plugin to `opencode.json`:
 }
 ```
 
-Add TUI plugin to `~/.config/opencode/tui.json`:
+Add TUI plugin to `tui.json`:
 
 ```json
 {
@@ -36,6 +28,10 @@ Add TUI plugin to `~/.config/opencode/tui.json`:
   "plugin": ["opencode-colbymchemry-codegraph/tui"]
 }
 ```
+
+No `npm install` step required. opencode resolves plugin packages from config.
+
+The plugin depends on `@colbymchenry/codegraph` and prefers its bundled binary. Set `codegraphCommand` only to use a custom binary.
 
 Restart opencode after config changes.
 
