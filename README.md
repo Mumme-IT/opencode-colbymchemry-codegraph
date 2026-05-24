@@ -64,6 +64,39 @@ Tuple form:
 | `codegraphCommand` | bundled binary, then `"codegraph"` | Custom binary name or absolute path |
 | `syncDebounceMs` | `4000` | Delay before post-edit sync |
 
+## MCP Config
+
+By default, the server plugin injects this config when `mcp.codegraph` is missing or `null`:
+
+```json
+{
+  "mcp": {
+    "codegraph": {
+      "type": "local",
+      "command": ["codegraph", "serve", "--mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+If `opencode.json` already defines `mcp.codegraph`, the plugin leaves it unchanged. Use that to customize the MCP server while keeping the plugin enabled:
+
+```json
+{
+  "plugin": ["opencode-colbymchemry-codegraph"],
+  "mcp": {
+    "codegraph": {
+      "type": "local",
+      "command": ["/path/to/codegraph", "serve", "--mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+Set `injectMcp: false` to disable automatic MCP injection.
+
 ## Status File
 
 Server plugin writes:
