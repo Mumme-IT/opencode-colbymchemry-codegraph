@@ -11,6 +11,10 @@
   ],
   "license": "MIT",
   "author": "Mumme-IT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mumme-IT/opencode-colbymchemry-codegraph.git"
+  },
   "type": "module",
   "main": "./dist/server.js",
   "exports": {
