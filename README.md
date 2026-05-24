@@ -80,20 +80,23 @@ By default, the server plugin injects this config when `mcp.codegraph` is missin
 }
 ```
 
-If `opencode.json` already defines `mcp.codegraph`, the plugin leaves it unchanged. Use that to customize the MCP server while keeping the plugin enabled:
+If `opencode.json` already defines `mcp.codegraph`, the plugin shallow-merges it over the defaults. User values override defaults; extra keys are preserved:
 
 ```json
 {
   "plugin": ["opencode-colbymchemry-codegraph"],
   "mcp": {
     "codegraph": {
-      "type": "local",
       "command": ["/path/to/codegraph", "serve", "--mcp"],
-      "enabled": true
+      "env": {
+        "CODEGRAPH_LOG": "debug"
+      }
     }
   }
 }
 ```
+
+Effective config keeps default `type` and `enabled`, replaces `command`, and adds `env`.
 
 Set `injectMcp: false` to disable automatic MCP injection.
 

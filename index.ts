@@ -41,6 +41,8 @@ interface StatusFile {
   filesByLanguage?: Record<string, number>
 }
 
+type CodeGraphMcpConfig = Record<string, unknown>
+
 const STATE_DIR = join(homedir(), ".local", "state", "opencode", "colbymchenry-codegraph")
 const STATUS_FILE = join(STATE_DIR, "status.json")
 const DEFAULT_SYNC_DEBOUNCE_MS = 4_000
@@ -59,6 +61,24 @@ function normalizeOptions(options: PluginOptions = {}, project = process.cwd()):
     injectMcp: options.injectMcp !== false,
     syncDebounceMs: options.syncDebounceMs ?? DEFAULT_SYNC_DEBOUNCE_MS,
   }
+}
+
+function defaultCodeGraphMcpConfig(options: ResolvedOptions): CodeGraphMcpConfig {
+  return {
+    type: "local",
+    command: [options.command, "serve", "--mcp"],
+    enabled: true,
+  }
+}
+
+function mergeCodeGraphMcpConfig(current: unknown, options: ResolvedOptions): CodeGraphMcpConfig {
+  const defaults = defaultCodeGraphMcpConfig(options)
+  if (!isObjectRecord(current)) return defaults
+  return { ...defaults, ...current }
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
 function findBundledCodeGraphCommand(project: string): string | undefined {
@@ -407,11 +427,7 @@ const CodeGraphPlugin: Plugin = async (input, rawOptions) => {
     config: async (cfg: any) => {
       if (!options.injectMcp) return
       cfg.mcp = cfg.mcp || {}
-      cfg.mcp.codegraph = cfg.mcp.codegraph ?? {
-        type: "local",
-        command: [options.command, "serve", "--mcp"],
-        enabled: true,
-      }
+      cfg.mcp.codegraph = mergeCodeGraphMcpConfig(cfg.mcp.codegraph, options)
     },
     tool: {
       "codegraph-plugin-status": createStatusTool(controller),
