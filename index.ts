@@ -70,12 +70,28 @@ function findBundledCodeGraphCommand(project: string): string | undefined {
 }
 
 function bundledBinDirectories(project: string): string[] {
-  return [
-    join(MODULE_DIR, "..", "node_modules", ".bin"),
-    join(MODULE_DIR, "node_modules", ".bin"),
+  return uniquePaths([
+    ...moduleBinDirectories(),
     join(project, "node_modules", ".bin"),
     join(process.cwd(), "node_modules", ".bin"),
-  ]
+  ])
+}
+
+function moduleBinDirectories(): string[] {
+  const directories: string[] = []
+  let current = MODULE_DIR
+  for (let depth = 0; depth < 5; depth++) {
+    directories.push(join(current, "node_modules", ".bin"))
+    directories.push(join(current, ".bin"))
+    const parent = dirname(current)
+    if (parent === current) break
+    current = parent
+  }
+  return directories
+}
+
+function uniquePaths(paths: string[]): string[] {
+  return [...new Set(paths)]
 }
 
 function codeGraphExecutableName(): string {
