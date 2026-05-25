@@ -1,6 +1,7 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
 import { execFile, spawn } from "node:child_process"
+import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
@@ -46,7 +47,8 @@ interface StatusFile {
 type CodeGraphMcpConfig = Record<string, unknown>
 
 const STATE_DIR = join(homedir(), ".local", "state", "opencode", "colbymchenry-codegraph")
-const STATUS_FILE = join(STATE_DIR, "status.json")
+const STATUS_DIR = join(STATE_DIR, "projects")
+const LEGACY_STATUS_FILE = join(STATE_DIR, "status.json")
 const GLOBAL_OPENCODE_CONFIG = join(homedir(), ".config", "opencode", "opencode.json")
 const DEFAULT_SYNC_DEBOUNCE_MS = 4_000
 const EDIT_TOOL_NAMES = new Set(["edit", "write", "patch", "apply_patch"])
@@ -176,21 +178,45 @@ function hasCodeGraphIndex(project: string): boolean {
   return existsSync(join(project, ".codegraph"))
 }
 
-function loadStatus(project: string): StatusFile {
+function projectStatusKey(project: string): string {
+  return createHash("sha256").update(project).digest("hex")
+}
+
+function statusFile(project: string): string {
+  return join(STATUS_DIR, `${projectStatusKey(project)}.json`)
+}
+
+function readStatusFile(path: string): StatusFile | undefined {
   try {
-    return JSON.parse(readFileSync(STATUS_FILE, "utf8"))
+    return JSON.parse(readFileSync(path, "utf8"))
   } catch {
-    return status(project, "needs_init", "CodeGraph not checked yet")
+    return undefined
   }
+}
+
+function loadLegacyStatus(project: string): StatusFile | undefined {
+  const legacy = readStatusFile(LEGACY_STATUS_FILE)
+  return legacy?.project === project ? legacy : undefined
+}
+
+function loadStatus(project: string): StatusFile {
+  return readStatusFile(statusFile(project))
+    ?? loadLegacyStatus(project)
+    ?? status(project, "needs_init", "CodeGraph not checked yet")
 }
 
 function status(project: string, state: CodeGraphState, message: string): StatusFile {
   return { project, state, message, updatedAt: Date.now() }
 }
 
+function readyStatus(project: string, current?: Partial<StatusFile>): StatusFile {
+  return { ...current, ...status(project, "ready", "CodeGraph ready") }
+}
+
 function writeStatus(next: StatusFile): void {
-  ensureDir(dirname(STATUS_FILE))
-  writeFileSync(STATUS_FILE, JSON.stringify(next, null, 2), "utf8")
+  const path = statusFile(next.project)
+  ensureDir(dirname(path))
+  writeFileSync(path, JSON.stringify(next, null, 2), "utf8")
 }
 
 function shortText(text: string): string {
@@ -241,7 +267,7 @@ function parseStatusOutput(project: string, output: string): StatusFile {
   const parsed = tryParseJson(output)
   if (parsed) return fromJsonStatus(project, parsed)
   const text = stripAnsi(output)
-  const next = status(project, "ready", "CodeGraph ready")
+  const next = readyStatus(project)
   next.files = parseNumber("files", text)
   next.symbols = parseNumber("symbols", text) ?? parseNumber("nodes", text)
   next.edges = parseNumber("edges", text)
@@ -262,7 +288,7 @@ function tryParseJson(text: string): any | null {
 }
 
 function fromJsonStatus(project: string, value: any): StatusFile {
-  const next = status(project, "ready", "CodeGraph ready")
+  const next = readyStatus(project)
   next.files = numericField(value, ["files", "fileCount"])
   next.symbols = numericField(value, ["symbols", "symbolCount", "nodes"])
   next.edges = numericField(value, ["edges", "edgeCount"])
@@ -382,7 +408,7 @@ class CodeGraphController {
       const output = await execCodeGraph(this.options.command, ["status"], this.project)
       writeStatus(parseStatusOutput(this.project, output))
     } catch (error) {
-      writeStatus(status(this.project, "ready", `Index exists; status failed: ${String(error)}`))
+      writeStatus(readyStatus(this.project, this.currentStatus()))
     }
   }
 

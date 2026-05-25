@@ -1,4 +1,5 @@
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@opencode-ai/plugin/tui"
+import { createHash } from "node:crypto"
 import { createMemo, createSignal, For, Match, onCleanup, onMount, Show, Switch } from "solid-js"
 
 type CodeGraphState = "ready" | "initializing" | "syncing" | "needs_init" | "missing_binary" | "error"
@@ -20,19 +21,39 @@ interface StatusFile {
   filesByLanguage?: Record<string, number>
 }
 
-const STATUS_REL_PATH = "colbymchenry-codegraph/status.json"
+const STATUS_REL_DIR = "colbymchenry-codegraph/projects"
+const LEGACY_STATUS_REL_PATH = "colbymchenry-codegraph/status.json"
 const POLL_INTERVAL_MS = 2_000
 
-async function readStatus(api: TuiPluginApi): Promise<StatusFile | null> {
+function projectStatusKey(project: string): string {
+  return createHash("sha256").update(project).digest("hex")
+}
+
+function statusRelativePath(project: string): string {
+  return `${STATUS_REL_DIR}/${projectStatusKey(project)}.json`
+}
+
+async function readStatusFile(api: TuiPluginApi, path: string): Promise<StatusFile | null> {
   try {
     const stateDir = (api.state as any).path?.state
     if (!stateDir) return null
-    const result = await (api.client.file as any).read({ path: STATUS_REL_PATH, directory: stateDir })
+    const result = await (api.client.file as any).read({ path, directory: stateDir })
     const content = result?.data?.content
     return typeof content === "string" ? JSON.parse(content) : null
   } catch {
     return null
   }
+}
+
+async function readLegacyStatus(api: TuiPluginApi, project: string): Promise<StatusFile | null> {
+  const legacy = await readStatusFile(api, LEGACY_STATUS_REL_PATH)
+  return legacy?.project === project ? legacy : null
+}
+
+async function readStatus(api: TuiPluginApi): Promise<StatusFile | null> {
+  const project = (api.state as any).path?.directory
+  if (!project || typeof project !== "string") return null
+  return await readStatusFile(api, statusRelativePath(project)) ?? await readLegacyStatus(api, project)
 }
 
 function relativeAge(timestamp?: number): string {

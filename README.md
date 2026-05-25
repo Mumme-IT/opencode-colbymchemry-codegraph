@@ -143,13 +143,13 @@ Do not enable `slimMcp` with current raw-config-only `opencode-slim-mcp`; openco
 
 ## Status File
 
-Server plugin writes:
+Server plugin writes one file per project path under:
 
 ```text
-~/.local/state/opencode/colbymchenry-codegraph/status.json
+~/.local/state/opencode/colbymchenry-codegraph/projects/<sha256(project-path)>.json
 ```
 
-TUI plugin reads same file via OpenCode file API, so it works for local and remote TUI sessions.
+TUI plugin derives same path from current workspace directory and reads it via OpenCode file API, so local projects, separate repos, and separate worktrees stay isolated.
 
 ## Development
 
