@@ -4,8 +4,11 @@ import { execFile, spawn } from "node:child_process"
 import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
-import { dirname, join } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const SKILLS_DIR = resolve(__dirname, "..", "skills")
 
 type CodeGraphState = "ready" | "initializing" | "syncing" | "needs_init" | "missing_binary" | "error"
 type AutoInitMode = "always" | "ask" | "never"
@@ -176,6 +179,17 @@ function normalizeAutoInit(value: PluginOptions["autoInit"]): AutoInitMode {
 
 function hasCodeGraphIndex(project: string): boolean {
   return existsSync(join(project, ".codegraph"))
+}
+
+function hasCodeGraphConfig(project: string): boolean {
+  const configPath = join(project, "codegraph.json")
+  if (!existsSync(configPath)) return false
+  try {
+    const config = JSON.parse(readFileSync(configPath, "utf8"))
+    return config?.enabled === true
+  } catch {
+    return false
+  }
 }
 
 function projectStatusKey(project: string): string {
@@ -360,6 +374,7 @@ class CodeGraphController {
   constructor(private project: string, private options: ResolvedOptions) {}
 
   async start(): Promise<void> {
+    if (!hasCodeGraphConfig(this.project)) return
     if (!(await this.hasBinary())) return
     if (hasCodeGraphIndex(this.project)) await this.refreshStatus()
     else this.handleMissingIndex()
@@ -500,6 +515,12 @@ const CodeGraphPlugin: Plugin = async (input, rawOptions) => {
 
   return {
     config: async (cfg: any) => {
+      cfg.skills = cfg.skills || {}
+      cfg.skills.paths = cfg.skills.paths || []
+      if (!cfg.skills.paths.includes(SKILLS_DIR)) {
+        cfg.skills.paths.push(SKILLS_DIR)
+      }
+
       if (!options.injectMcp) return
       cfg.mcp = cfg.mcp || {}
       if (isSlimManaged) {

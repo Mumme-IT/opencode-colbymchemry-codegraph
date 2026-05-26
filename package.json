@@ -1,6 +1,6 @@
 {
   "name": "opencode-colbymchemry-codegraph",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "OpenCode server + TUI plugin for colbymchenry CodeGraph auto-init, sync, and status visibility",
   "keywords": [
     "opencode",
@@ -30,6 +30,7 @@
   },
   "files": [
     "dist",
+    "skills",
     "README.md",
     "LICENSE"
   ],
