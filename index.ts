@@ -374,7 +374,10 @@ class CodeGraphController {
   constructor(private project: string, private options: ResolvedOptions) {}
 
   async start(): Promise<void> {
-    if (!hasCodeGraphConfig(this.project)) return
+    if (!hasCodeGraphConfig(this.project)) {
+      writeStatus(status(this.project, "needs_init", 'Add codegraph.json { "enabled": true } to activate'))
+      return
+    }
     if (!(await this.hasBinary())) return
     if (hasCodeGraphIndex(this.project)) await this.refreshStatus()
     else this.handleMissingIndex()
@@ -501,9 +504,9 @@ function createSyncTool(controller: CodeGraphController) {
 }
 
 function reminder(file: StatusFile): string {
-  if (file.state === "ready") return "Use CodeGraph MCP tools before grep/read for architecture or impact questions."
+  if (file.state === "ready") return "Use CodeGraph MCP tools before grep/read for architecture or impact questions. Load skill `mcp-codegraph` to see available tools."
   if (file.state === "missing_binary") return "CodeGraph binary missing. Install @colbymchenry/codegraph."
-  if (file.state === "needs_init") return "Run codegraph-plugin-init before codebase-wide exploration."
+  if (file.state === "needs_init") return `CodeGraph not ready: ${file.message} Load skill \`codegraph-plugin\` for setup steps.`
   return `CodeGraph state: ${file.state}. ${file.message}`
 }
 
