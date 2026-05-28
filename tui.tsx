@@ -1,6 +1,6 @@
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@opencode-ai/plugin/tui"
 import { createHash } from "node:crypto"
-import { createMemo, createSignal, For, Match, onCleanup, onMount, Show, Switch } from "solid-js"
+import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 
 type CodeGraphState = "ready" | "initializing" | "syncing" | "needs_init" | "missing_binary" | "error"
 type ThemeColor = TuiPluginApi["theme"]["current"]["text"]
@@ -153,6 +153,11 @@ function View(props: { api: TuiPluginApi }) {
     return theme().textMuted
   })
 
+  const label = createMemo(() => {
+    const current = status()
+    return current ? stateLabel(current.state) : "Unknown"
+  })
+
   const refresh = async () => setStatus(await readStatus(props.api))
   const toggleOpen = () => {
     if (hasDetails(status())) setOpen((current) => !current)
@@ -178,16 +183,12 @@ function View(props: { api: TuiPluginApi }) {
         <text fg={color()}>•</text>
         <text fg={theme().text}>
           <b>CodeGraph</b>{" "}
-          <span style={{ fg: theme().textMuted }}>
-            <Switch fallback="Unknown">
-              <Match when={status()}>{(file) => stateLabel(file().state)}</Match>
-            </Switch>
-          </span>
+          <span style={{ fg: theme().textMuted }}>{label()}</span>
         </text>
       </box>
       <text fg={theme().textMuted} wrapMode="word">{subtitle()}</text>
       <Show when={open() && status()}>
-        {(file) => <StatusDetails file={file()} muted={theme().textMuted} text={theme().text} />}
+        <StatusDetails file={status() as StatusFile} muted={theme().textMuted} text={theme().text} />
       </Show>
     </box>
   )
