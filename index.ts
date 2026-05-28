@@ -57,6 +57,7 @@ const DEFAULT_SYNC_DEBOUNCE_MS = 4_000
 const EDIT_TOOL_NAMES = new Set(["edit", "write", "patch", "apply_patch"])
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url))
 const MCP_EXTENSION_KEYS = new Set(["slim"])
+const DISABLED_MESSAGE = 'CodeGraph disabled: add codegraph.json { "enabled": true } to activate.'
 
 function ensureDir(path: string): void {
   mkdirSync(path, { recursive: true })
@@ -385,17 +386,20 @@ class CodeGraphController {
 
   scheduleSync(reason: string): void {
     if (!this.options.autoSync) return
+    if (!hasCodeGraphConfig(this.project)) return
     clearTimeout(this.timer)
     this.timer = setTimeout(() => void this.sync(reason), this.options.syncDebounceMs)
   }
 
   async init(reason = "manual"): Promise<string> {
+    if (!hasCodeGraphConfig(this.project)) return DISABLED_MESSAGE
     if (this.running) return "CodeGraph already busy."
     this.runLongTask("initializing", ["init", "-i"], `Initializing (${reason})`)
     return "CodeGraph initialization started."
   }
 
   async sync(reason = "manual"): Promise<string> {
+    if (!hasCodeGraphConfig(this.project)) return DISABLED_MESSAGE
     if (this.running) return "CodeGraph already busy."
     if (!hasCodeGraphIndex(this.project)) return this.init(reason)
     this.runLongTask("syncing", ["sync"], `Syncing (${reason})`)
